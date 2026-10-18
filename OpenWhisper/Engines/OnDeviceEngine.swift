@@ -7,11 +7,36 @@ import Foundation
 actor OnDeviceEngine {
     private var pipeline: WhisperKit?
     private var loadedFolder: URL?
+    /// A load in progress, shared by callers that ask for the same model meanwhile.
+    private var loading: (folder: URL, task: Task<WhisperKit, Error>)?
 
     /// Loads the model in `folder`, compiling it for this device on first use. Does nothing if it is already loaded.
     func prepare(folder: URL, tokenizerFolder: URL) async throws {
         if pipeline != nil, loadedFolder == folder { return }
+        if let loading, loading.folder == folder {
+            // Whichever caller resumes first stores the shared result.
+            let loaded = try await loading.task.value
+            if loadedFolder != folder || pipeline == nil {
+                pipeline = loaded
+                loadedFolder = folder
+            }
+            return
+        }
         await unload()
+        let task = Task { try await Self.load(folder: folder, tokenizerFolder: tokenizerFolder) }
+        loading = (folder, task)
+        do {
+            let loaded = try await task.value
+            if loading?.folder == folder { loading = nil }
+            pipeline = loaded
+            loadedFolder = folder
+        } catch {
+            if loading?.folder == folder { loading = nil }
+            throw error
+        }
+    }
+
+    private static func load(folder: URL, tokenizerFolder: URL) async throws -> WhisperKit {
         let config = WhisperKitConfig(
             modelFolder: folder.path,
             tokenizerFolder: tokenizerFolder,
@@ -27,8 +52,7 @@ actor OnDeviceEngine {
             load: true,
             download: false
         )
-        pipeline = try await WhisperKit(config)
-        loadedFolder = folder
+        return try await WhisperKit(config)
     }
 
     func transcribe(samples: [Float], language: String?, prompt: String?) async throws -> String {
@@ -51,6 +75,8 @@ actor OnDeviceEngine {
     }
 
     func unload() async {
+        loading?.task.cancel()
+        loading = nil
         await pipeline?.unloadModels()
         pipeline = nil
         loadedFolder = nil

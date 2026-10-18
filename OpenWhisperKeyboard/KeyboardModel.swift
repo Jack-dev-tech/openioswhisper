@@ -9,6 +9,8 @@ import UIKit
 @Observable
 final class KeyboardModel {
     private(set) var status: SessionStatus = .inactive
+    /// Whether the app's session heartbeat is fresh. Stored, so the view updates when the app goes away.
+    private(set) var isLive = false
     private(set) var settings = DictationSettings()
     private(set) var hasFullAccess = false
     private(set) var needsGlobeKey = true
@@ -35,6 +37,7 @@ final class KeyboardModel {
     // MARK: - Lifecycle
 
     func appear() {
+        disappear()
         guard let controller else { return }
         hasFullAccess = controller.hasFullAccess
         needsGlobeKey = controller.needsInputModeSwitchKey
@@ -84,11 +87,13 @@ final class KeyboardModel {
         let loaded = store.loadStatus()
         if let expected, Date() < expected.until, loaded.phase != expected.phase {
             // The app hasn't caught up with our command yet; only take the fresh heartbeat.
-            status.heartbeat = loaded.heartbeat
+            if status.heartbeat != loaded.heartbeat { status.heartbeat = loaded.heartbeat }
         } else {
             expected = nil
-            status = loaded
+            if status != loaded { status = loaded }
         }
+        let live = status.isAlive()
+        if isLive != live { isLive = live }
         insertPendingResult()
     }
 
@@ -99,8 +104,8 @@ final class KeyboardModel {
 
     // MARK: - Dictation
 
-    var isRecording: Bool { status.isAlive() && status.phase == .recording }
-    var isTranscribing: Bool { status.isAlive() && status.phase == .transcribing }
+    var isRecording: Bool { isLive && status.phase == .recording }
+    var isTranscribing: Bool { isLive && status.phase == .transcribing }
 
     func micTapped() {
         notice = nil
@@ -188,7 +193,7 @@ final class KeyboardModel {
     var statusLine: String {
         if let notice { return notice }
         guard hasFullAccess else { return "Full Access is needed to dictate." }
-        guard status.isAlive() else { return "Tap the mic to start a session in OpenWhisper." }
+        guard isLive else { return "Tap the mic to start a session in OpenWhisper." }
         switch status.phase {
         case .recording: return "Listening… tap to finish."
         case .transcribing: return "Transcribing with \(settings.provider.displayName)…"

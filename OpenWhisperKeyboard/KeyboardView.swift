@@ -61,7 +61,7 @@ struct KeyboardView: View {
             MicButton(
                 isRecording: model.isRecording,
                 isTranscribing: model.isTranscribing,
-                isSessionLive: model.status.isAlive(),
+                isSessionLive: model.isLive,
                 level: CGFloat(model.status.level),
                 action: model.micTapped
             )

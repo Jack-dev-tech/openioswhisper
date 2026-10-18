@@ -77,12 +77,16 @@ final class DictationSession {
         }
         publish()
 
-        // Load the on-device model now so the first dictation doesn't wait for it.
-        do {
-            try await pipeline.prepare()
-        } catch {
-            message = error.localizedDescription
-            publish()
+        // Load the on-device model in the background so the first dictation doesn't wait for it.
+        // Not awaited: recording can start meanwhile, and transcription waits for the same load.
+        Task {
+            do {
+                try await pipeline.prepare()
+            } catch {
+                guard phase == .ready else { return }
+                message = error.localizedDescription
+                publish()
+            }
         }
     }
 
