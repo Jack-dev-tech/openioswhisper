@@ -28,6 +28,16 @@ python3 scripts/make-icon.py OpenWhisper/Theme/Assets.xcassets/AppIcon.appiconse
    - Allow the microphone.
    - Paste a Groq key from [console.groq.com/keys](https://console.groq.com/keys) in Settings, or download an on-device model in Models.
 
+## Installing without a Mac (sideloading)
+Every CI run builds an unsigned `OpenWhisper.ipa`.
+1. Open the repo's **Actions** tab on GitHub and pick the latest green **CI** run.
+2. Download **OpenWhisper-ipa** under Artifacts, and unzip it to get `OpenWhisper.ipa`.
+3. Install the IPA with [Sideloadly](https://sideloadly.io) or [AltStore](https://altstore.io) using your Apple ID. They re-sign the app, including the keyboard, with your account.
+4. On the iPhone, trust your Apple ID under **Settings › General › VPN & Device Management**. On iOS 16 and later, also turn on **Settings › Privacy & Security › Developer Mode**.
+5. Do the first-run checklist below. Skip step 1: that's for Xcode only.
+
+With a free Apple ID, the app stops opening after 7 days. Reinstall it, or let AltStore refresh it. Sideloading tools often rename the App Group when they re-sign. The app and keyboard read the real group name from their embedded provisioning profile, so they still find each other.
+
 ## How dictation works
 iOS doesn't let keyboard extensions use the microphone, so the app records for the keyboard. This is the same approach Wispr Flow and Superwhisper use.
 

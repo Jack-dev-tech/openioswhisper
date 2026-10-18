@@ -43,3 +43,50 @@ jobs:
           grep -E "(error|warning): " build/xcodebuild.log | grep -v "SourcePackages/checkouts" | sort -u || true
           tail -n 40 build/xcodebuild.log
           grep -q "BUILD SUCCEEDED" build/xcodebuild.log
+
+  ipa:
+    name: Unsigned IPA for sideloading
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build for device
+        run: |
+          mkdir -p build
+          xcodebuild build \
+            -project OpenWhisper.xcodeproj \
+            -scheme OpenWhisper \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            > build/xcodebuild-device.log 2>&1 || true
+          grep -E "error: " build/xcodebuild-device.log | sort -u || true
+          tail -n 20 build/xcodebuild-device.log
+          grep -q "BUILD SUCCEEDED" build/xcodebuild-device.log
+      - name: Package IPA
+        run: |
+          APP=build/DerivedData/Build/Products/Release-iphoneos/OpenWhisper.app
+          # Ad-hoc sign with the entitlements so sideloading tools see the App Group
+          # and keep it when they re-sign with your Apple ID. Inner bundles first.
+          if [ -d "$APP/Frameworks" ]; then
+            find "$APP/Frameworks" -maxdepth 1 \( -name "*.framework" -o -name "*.dylib" \) -exec codesign --force --sign - {} \;
+          fi
+          codesign --force --sign - --entitlements OpenWhisperKeyboard/OpenWhisperKeyboard.entitlements "$APP/PlugIns/OpenWhisperKeyboard.appex"
+          codesign --force --sign - --entitlements OpenWhisper/OpenWhisper.entitlements "$APP"
+          codesign -d --entitlements - "$APP/PlugIns/OpenWhisperKeyboard.appex"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/
+          (cd build/ipa && zip -qry ../OpenWhisper.ipa Payload)
+          ls -lh build/OpenWhisper.ipa
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenWhisper-ipa
+          path: build/OpenWhisper.ipa
+          retention-days: 30

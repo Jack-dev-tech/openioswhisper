@@ -22,12 +22,12 @@ public final class SharedStore: @unchecked Sendable {
     /// The store in the shared App Group container, or nil when the container is unavailable
     /// (for example, a keyboard without Full Access).
     public static func appGroup() -> SharedStore? {
-        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: IPC.appGroupID) else {
-            return nil
+        for id in AppGroup.candidates(profileGroups: AppGroup.groupsInEmbeddedProfile()) {
+            guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) else { continue }
+            let store = SharedStore(directory: container.appendingPathComponent("Shared", isDirectory: true))
+            if store.isWritable { return store }
         }
-        let directory = container.appendingPathComponent("Shared", isDirectory: true)
-        let store = SharedStore(directory: directory)
-        return store.isWritable ? store : nil
+        return nil
     }
     #endif
 
