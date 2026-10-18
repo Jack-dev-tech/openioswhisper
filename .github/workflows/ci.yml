@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tests:
+    name: DictationCore tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tests
+        run: swift test --package-path Packages/DictationCore
+
+  build:
+    name: Build app and keyboard (iOS Simulator)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build
+        run: |
+          mkdir -p build
+          xcodebuild build \
+            -project OpenWhisper.xcodeproj \
+            -scheme OpenWhisper \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            > build/xcodebuild.log 2>&1 || true
+          # Our own errors and warnings first, then the tail for context.
+          grep -E "(error|warning): " build/xcodebuild.log | grep -v "SourcePackages/checkouts" | sort -u || true
+          tail -n 40 build/xcodebuild.log
+          grep -q "BUILD SUCCEEDED" build/xcodebuild.log

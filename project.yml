@@ -1,0 +1,121 @@
+name: OpenWhisper
+options:
+  bundleIdPrefix: com.jackmatsuzaki
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+packages:
+  DictationCore:
+    path: Packages/DictationCore
+  ArgmaxOSS:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    from: "1.1.1"
+
+settings:
+  base:
+    # Swift 5 language mode with full concurrency checking as warnings: WhisperKit's types
+    # aren't Sendable yet, which Swift 6 mode would turn into errors.
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # Set your team here (or in Xcode › Signing & Capabilities) for both targets.
+    DEVELOPMENT_TEAM: ""
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  OpenWhisper:
+    type: application
+    platform: iOS
+    sources:
+      - OpenWhisper
+      - Shared
+    dependencies:
+      - target: OpenWhisperKeyboard
+      - package: DictationCore
+      - package: ArgmaxOSS
+        product: WhisperKit
+    info:
+      path: OpenWhisper/Info.plist
+      properties:
+        CFBundleDisplayName: OpenWhisper
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Keeps the microphone open in the background during a dictation session.
+        UIBackgroundModes:
+          - audio
+        NSMicrophoneUsageDescription: OpenWhisper records your voice when you tap the mic in the OpenWhisper keyboard or in the app, and turns it into text.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.jackmatsuzaki.OpenWhisper
+            CFBundleURLSchemes:
+              - openwhisper
+    entitlements:
+      path: OpenWhisper/OpenWhisper.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.jackmatsuzaki.openwhisper
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jackmatsuzaki.OpenWhisper
+        PRODUCT_NAME: OpenWhisper
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+  OpenWhisperKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - OpenWhisperKeyboard
+      - Shared
+    dependencies:
+      - package: DictationCore
+    info:
+      path: OpenWhisperKeyboard/Info.plist
+      properties:
+        CFBundleDisplayName: OpenWhisper
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.keyboard-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: en-US
+            # Needed to share the App Group container with the app. The keyboard makes no network requests.
+            RequestsOpenAccess: true
+    entitlements:
+      path: OpenWhisperKeyboard/OpenWhisperKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.jackmatsuzaki.openwhisper
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jackmatsuzaki.OpenWhisper.Keyboard
+        PRODUCT_NAME: OpenWhisperKeyboard
+        APPLICATION_EXTENSION_API_ONLY: YES
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+schemes:
+  OpenWhisper:
+    build:
+      targets:
+        OpenWhisper: all
+        OpenWhisperKeyboard: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - package: DictationCore/DictationCoreTests
